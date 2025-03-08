@@ -149,6 +149,7 @@
             display: flex;
             align-items: center;
             gap: 1rem;
+            justify-content: center;
         }
 
         .file-input {
@@ -173,6 +174,7 @@
             margin-top: 1rem;
             display: grid;
             gap: 1rem;
+            justify-content: center;
         }
 
         .question-card {
@@ -294,24 +296,16 @@
             align-items: center; /* Center text vertically */
             justify-content: center; /* Center text horizontally */
             width: 100%; /* Full width */
-            max-width: 200px; /* Optional: Set a max width for the button */
+            max-width: none; /* Optional: Set a max width for the button */
+            align-self: stretch; /* Center the button */
         }
-        .aebtn{
-            background: var(--primary);
-            color: white;
-            border: none;
-           
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.2s;
-            
-            align-items: center;
-           
-            width: auto; /* Set width to auto for smaller buttons */
-            max-width: 120px; /* Optional: Set a max width for the button */
-            margin-right: 0px; /* Add margin to the left for spacing */
-        }
+
+          /* Center the submit button */
+        #questionForm .btn {
+            align-self: center; /* Center the button */
+          
+        } 
+        
     </style>
 </head>
 <body>
