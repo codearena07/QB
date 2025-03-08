@@ -152,13 +152,16 @@
         }
 
         .file-input {
-            width: 100%;
+            width: 200px;
             padding: 1rem;
             border: 2px dashed var(--border);
             border-radius: 0.5rem;
             text-align: center;
             cursor: pointer;
             margin-bottom: 1.5rem;
+            overflow: hidden; /* Prevent overflow */
+            white-space: nowrap; /* Prevent text wrapping */
+            text-overflow: ellipsis; /* Add ellipsis for overflow text */
         }
 
         .file-input:hover {
