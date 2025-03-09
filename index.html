@@ -305,6 +305,17 @@
             align-self: center; /* Center the button */
           
         } 
+
+        /* Message for select chapter prompt */
+        #selectChapterPrompt {
+            text-align: center;
+            padding: 2rem;
+            color: #B0B0B0;
+            font-size: 1.1rem;
+            margin-top: 1rem;
+            border: 1px dashed var(--border);
+            border-radius: 0.5rem;
+        }
         
     </style>
 </head>
@@ -339,12 +350,16 @@
             <div class="section-header">
                 <h2 class="section-title">Questions</h2>
                 <div class="button-group">
-                    <button class="btn" onclick="toggleQuestionForm()">+ Add Question</button>
-                    
+                    <button class="btn" id="addQuestionBtn" style="display: none;" onclick="toggleQuestionForm()">+ Add Question</button>
                 </div>
             </div>
             
-            <form id="questionForm">
+            <!-- Select chapter prompt -->
+            <div id="selectChapterPrompt">
+                Please select a subject and chapter to add or view questions
+            </div>
+            
+            <form id="questionForm" style="display: none;">
                 <div class="form-group" style="display: flex; align-items: center; gap: 1rem;">
                     <label class="file-input" for="questionImage">
                         📁 Upload Question Image
@@ -474,6 +489,12 @@
         async function handleQuestionSubmit(e) {
             e.preventDefault();
 
+            // Check if a subject is selected
+            if (!selectedSubjectId) {
+                alert('Please select a subject first!');
+                return; // Prevent submission
+            }
+
             // Check if a chapter is selected
             if (!selectedChapterId) {
                 alert('Please select a chapter first!');
@@ -510,6 +531,10 @@
                     loadQuestions(selectedChapterId);
                     document.getElementById('questionForm').reset();
                     showNotification('Question added successfully!');
+                    
+                    // Reset file input labels
+                    document.querySelector('label[for="questionImage"]').textContent = '📁 Upload Question Image';
+                    document.querySelector('label[for="solutionImage"]').textContent = '📁 Upload Solution Image';
                 };
 
                 addRequest.onerror = (event) => {
@@ -580,6 +605,12 @@
 
             // Store the selected subject ID in localStorage
             localStorage.setItem('selectedSubjectId', subjectId);
+            
+            // Reset question section when subject changes
+            document.getElementById('addQuestionBtn').style.display = 'none';
+            document.getElementById('questionForm').style.display = 'none';
+            document.getElementById('selectChapterPrompt').style.display = 'block';
+            document.getElementById('questionsContainer').innerHTML = '';
         }
 
         function loadChapters(subjectId) {
@@ -620,8 +651,13 @@
             document.querySelectorAll('#chapterList .list-item').forEach(item => 
                 item.classList.remove('active'));
             element.classList.add('active');
+            
+            // Show Add Question button and hide select chapter prompt
+            document.getElementById('addQuestionBtn').style.display = 'inline-flex';
+            document.getElementById('selectChapterPrompt').style.display = 'none';
+            
+            // Load questions but keep form hidden until user clicks Add Question
             loadQuestions(chapterId);
-            document.getElementById('questionForm').style.display = 'block';
 
             // Store the selected chapter ID in localStorage
             localStorage.setItem('selectedChapterId', chapterId);
@@ -653,20 +689,29 @@
 
                 questions.forEach((question, index) => {
                     const questionURL = URL.createObjectURL(new Blob([question.questionImage]));
-                    const solutionURL = URL.createObjectURL(new Blob([question.solutionImage]));
+                    const solutionURL = question.solutionImage ? URL.createObjectURL(new Blob([question.solutionImage])) : '';
 
                     const card = document.createElement('div');
                     card.className = 'question-card';
+                    
+                    // Create HTML for solution image only if it exists
+                    let solutionHTML = '';
+                    if (question.solutionImage) {
+                        solutionHTML = `
+                            <div>
+                                <h4>Solution:</h4>
+                                <img class="question-image" src="${solutionURL}" onclick="openImage('${solutionURL}')" style="cursor: pointer;">
+                            </div>
+                        `;
+                    }
+                    
                     card.innerHTML = `
                         <div class="question-image-container" style="display: flex; align-items: center;">
                             <div style="margin-right: 1rem;">
                                 <h4>Question ${index + 1}:</h4>
                                 <img class="question-image" src="${questionURL}" onclick="openImage('${questionURL}')" style="cursor: pointer;">
                             </div>
-                            <div>
-                                <h4>Solution:</h4>
-                                <img class="question-image" src="${solutionURL}" onclick="openImage('${solutionURL}')" style="cursor: pointer;">
-                            </div>
+                            ${solutionHTML}
                         </div>
                         <div style="display: flex; justify-content: center; margin-top: 1rem;">
                             <button class="btn delete-btn" onclick="deleteQuestion(${question.id})" aria-label="Delete">
@@ -733,13 +778,33 @@
             const storedChapterId = localStorage.getItem('selectedChapterId');
 
             if (storedSubjectId) {
-                selectedSubjectId = storedSubjectId;
+                selectedSubjectId = parseInt(storedSubjectId);
                 loadSubjects(); // Load subjects to find the active one
             }
 
-            if (storedChapterId) {
-                selectedChapterId = storedChapterId;
-                loadChapters(selectedSubjectId); // Load chapters for the selected subject
+            if (storedChapterId && storedSubjectId) {
+                selectedChapterId = parseInt(storedChapterId);
+                // Add a small delay to ensure subjects are loaded first
+                setTimeout(() => {
+                    loadChapters(parseInt(storedSubjectId));
+                    
+                    // Find and activate the chapter element
+                    setTimeout(() => {
+                        const chapterItems = document.querySelectorAll('#chapterList .list-item');
+                        chapterItems.forEach(item => {
+                            if (item.getAttribute('data-id') == storedChapterId) {
+                                item.click();
+                            }
+                        });
+                        
+                        // Show add question button if chapter is selected
+                        if (selectedChapterId) {
+                            document.getElementById('addQuestionBtn').style.display = 'inline-flex';
+                            document.getElementById('selectChapterPrompt').style.display = 'none';
+                            loadQuestions(selectedChapterId);
+                        }
+                    }, 100);
+                }, 100);
             }
         };
 
@@ -749,6 +814,19 @@
                 const store = transaction.objectStore('subjects');
 
                 store.delete(subjectId).onsuccess = () => {
+                    // Reset selection if the deleted subject was selected
+                    if (selectedSubjectId === subjectId) {
+                        selectedSubjectId = null;
+                        selectedChapterId = null;
+                        document.getElementById('chapterList').innerHTML = '';
+                        document.getElementById('questionsContainer').innerHTML = '';
+                        document.getElementById('addQuestionBtn').style.display = 'none';
+                        document.getElementById('questionForm').style.display = 'none';
+                        document.getElementById('selectChapterPrompt').style.display = 'block';
+                        localStorage.removeItem('selectedSubjectId');
+                        localStorage.removeItem('selectedChapterId');
+                    }
+                    
                     loadSubjects(); // Reload subjects after deletion
                     showNotification('Subject deleted successfully!'); // Show notification
                 };
@@ -766,6 +844,16 @@
                 const store = transaction.objectStore('chapters');
 
                 store.delete(chapterId).onsuccess = () => {
+                    // Reset selection if the deleted chapter was selected
+                    if (selectedChapterId === chapterId) {
+                        selectedChapterId = null;
+                        document.getElementById('questionsContainer').innerHTML = '';
+                        document.getElementById('addQuestionBtn').style.display = 'none';
+                        document.getElementById('questionForm').style.display = 'none';
+                        document.getElementById('selectChapterPrompt').style.display = 'block';
+                        localStorage.removeItem('selectedChapterId');
+                    }
+                    
                     loadChapters(selectedSubjectId); // Reload chapters after deletion
                     showNotification('Chapter deleted successfully!'); // Show notification
                 };
