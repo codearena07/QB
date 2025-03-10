@@ -316,6 +316,20 @@
             border: 1px dashed var(--border);
             border-radius: 0.5rem;
         }
+
+        footer {
+            margin-top: auto; /* Push footer to the bottom */
+        }
+        html, body {
+            height: 100%; /* Full height for body */
+            margin: 0; /* Remove default margin */
+            display: flex;
+            flex-direction: column; /* Stack children vertically */
+        }
+
+        .container {
+            flex: 1; /* Allow container to grow and fill space */
+        }
         
     </style>
 </head>
@@ -388,6 +402,24 @@
     <div id="notification" class="notification" style="display: none;">
         Question added successfully!
     </div>
+
+    <footer style="margin-top: 2rem; padding: 1rem; text-align: center; position: relative;">
+        <div style="border-top: 2px solid; border-image: linear-gradient(to right,rgb(213, 6, 6), #FF5733, #2a81f4, #01229c) 1; margin-bottom: 1rem;"></div>
+        <div>
+            <a href="https://t.me/adityasuryawanshi" target="_blank" style="margin: 0 1rem; transition: transform 0.2s;">
+                <i class="fa fa-telegram" style="font-size: 24px; color: #2a81f4;"></i>
+            </a>
+            <a href="mailto:adityacodearena@gmail.com" style="margin: 0 1rem; transition: transform 0.2s;">
+                <i class="fa fa-envelope" style="font-size: 24px; color: rgb(149, 224, 165);"></i>
+            </a>
+        </div>
+        <div style="margin-top: 1rem;font-weight: bold; font-size: 14px; background:linear-gradient(to right,rgb(213, 6, 6), #FF5733, #2a81f4, #01229c); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            - Developed & Designed by <span style="color: gold;">codeArena</span>
+        </div>
+        <div style="font-size: 12px; color: grey; margin-top: 0.5rem;">
+            &copy; 2025 All Rights Reserved
+        </div>
+    </footer>
 
     <script>
         let db;
