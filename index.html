@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JEE Question Bank</title>
+    <title>Question Bank</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <style>
         :root {
@@ -31,7 +31,7 @@
 
         .container {
             display: grid;
-            grid-template-columns: 240px 280px 1fr;
+            grid-template-columns: 240px 280px 1fr; /* Sidebar for subjects, sidebar for chapters, and main content */
             gap: 1.5rem;
             max-width: 1600px;
             margin: 0 auto;
@@ -43,7 +43,7 @@
             border-radius: 0.5rem;
             padding: 1rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-            height: calc(100vh - 2rem);
+            height: calc(100vh - 2rem); /* Full height minus margins */
             overflow-y: auto;
         }
 
@@ -128,6 +128,7 @@
             border-radius: 0.5rem;
             padding: 1rem;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            flex: 1; /* Allow it to grow and fill the space */
         }
 
         /* Question Form */
@@ -330,11 +331,59 @@
         .container {
             flex: 1; /* Allow container to grow and fill space */
         }
-        
+        /* Update the button styles for better appearance */
+.btn {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem; /* Adjust padding for better size */
+    border-radius: 0.475rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center; /* Center buttons vertically */
+    justify-content: center; /* Center text horizontally */
+    width: auto; /* Set width to auto for smaller buttons */
+    max-width: 150px; /* Optional: Set a max width for the button */
+    margin-left: 0.5rem; /* Add margin to the left for spacing */
+    font-size: 14px; /* Set a consistent font size */
+}
+
+.btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-1px);
+}
+
+        /* Add this CSS for specific button positioning */
+        #exportButton {
+            position: absolute; /* Positioning relative to the nearest positioned ancestor */
+            top: 1rem; /* Distance from the top */
+            left: 1rem; /* Distance from the left */
+        }
+
+        #importButton {
+            position: absolute; /* Positioning relative to the nearest positioned ancestor */
+            top: 1rem; /* Distance from the top */
+            right: 1rem; /* Distance from the right */
+        }
     </style>
 </head>
 <body>
-    <div class="container">
+  
+
+<!-- Update the button-group div to include the new IDs -->
+<div class="button-group">
+    <button id="exportButton" class="btn" onclick="exportData()" title="Backup Data">
+        <i class="fa fa-download"></i> Backup
+    </button>
+    <label id="importButton" for="importInput" class="btn" title="Import Data">
+        <i class="fa fa-upload"></i> Import
+    </label>
+    <input type="file" id="importInput" accept=".json" style="display: none;" onchange="importData(event)">
+</div>
+  <div class="container">
+
         <!-- Subjects Panel -->
         <div class="sidebar-section">
             <div class="section-header">
@@ -346,7 +395,7 @@
             </div>
             <ul class="item-list" id="subjectList"></ul>
         </div>
-
+    
         <!-- Chapters Panel -->
         <div class="sidebar-section">
             <div class="section-header">
@@ -911,6 +960,292 @@
                 }
             });
         }
+
+        // Add these functions to your existing JavaScript
+
+// Export all data as a JSON file
+function exportData() {
+    // Show loading notification
+    showNotification('Preparing backup...');
+    
+    const backupData = {
+        subjects: [],
+        chapters: [],
+        questions: []
+    };
+    
+    // First get all subjects
+    const subjectsPromise = getAllData('subjects');
+    
+    subjectsPromise
+        .then(subjects => {
+            backupData.subjects = subjects;
+            return getAllData('chapters');
+        })
+        .then(chapters => {
+            backupData.chapters = chapters;
+            return getAllData('questions');
+        })
+        .then(questions => {
+            // Convert ArrayBuffer to Base64 for each question image
+            const processedQuestions = questions.map(question => {
+                return {
+                    id: question.id,
+                    chapterId: question.chapterId,
+                    timestamp: question.timestamp,
+                    questionImage: arrayBufferToBase64(question.questionImage),
+                    solutionImage: question.solutionImage ? arrayBufferToBase64(question.solutionImage) : null
+                };
+            });
+            
+            backupData.questions = processedQuestions;
+            
+            // Create and download the backup file
+            const dataStr = JSON.stringify(backupData);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `JEE_QuestionBank_Backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Backup successfully created!');
+        })
+        .catch(error => {
+            console.error('Error creating backup:', error);
+            showNotification('Error creating backup. Please try again.');
+        });
+}
+
+// Helper function to get all data from a store
+function getAllData(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// Convert ArrayBuffer to Base64 string
+function arrayBufferToBase64(buffer) {
+    if (!buffer) return null;
+    
+    const binary = [];
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    
+    for (let i = 0; i < len; i++) {
+        binary.push(String.fromCharCode(bytes[i]));
+    }
+    
+    return btoa(binary.join(''));
+}
+
+// Convert Base64 string back to ArrayBuffer
+function base64ToArrayBuffer(base64) {
+    if (!base64) return null;
+    
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    return bytes.buffer;
+}
+
+// Import data from a JSON file
+function importData(event) {
+    const file = event.target.files[0];
+    if (!file) {
+        return;
+    }
+    
+    // Show loading notification
+    showNotification('Importing data...');
+    
+    const reader = new FileReader();
+    
+    reader.onload = function(e) {
+        try {
+            const backupData = JSON.parse(e.target.result);
+            
+            // Clear existing database and import new data
+            clearDatabase()
+                .then(() => {
+                    return importSubjects(backupData.subjects);
+                })
+                .then(() => {
+                    return importChapters(backupData.chapters);
+                })
+                .then(() => {
+                    return importQuestions(backupData.questions);
+                })
+                .then(() => {
+                    showNotification('Data imported successfully!');
+                    
+                    // Reset selections and reload data
+                    selectedSubjectId = null;
+                    selectedChapterId = null;
+                    localStorage.removeItem('selectedSubjectId');
+                    localStorage.removeItem('selectedChapterId');
+                    
+                    loadSubjects();
+                    document.getElementById('chapterList').innerHTML = '';
+                    document.getElementById('questionsContainer').innerHTML = '';
+                    document.getElementById('addQuestionBtn').style.display = 'none';
+                    document.getElementById('questionForm').style.display = 'none';
+                    document.getElementById('selectChapterPrompt').style.display = 'block';
+                    
+                    // Reset file input
+                    document.getElementById('importInput').value = '';
+                })
+                .catch(error => {
+                    console.error('Error importing data:', error);
+                    showNotification('Error importing data. Please try again.');
+                });
+        } catch (error) {
+            console.error('Error parsing backup file:', error);
+            showNotification('Invalid backup file format. Please select a valid backup file.');
+        }
+    };
+    
+    reader.onerror = function() {
+        showNotification('Error reading file. Please try again.');
+    };
+    
+    reader.readAsText(file);
+}
+
+// Clear all data from the database
+function clearDatabase() {
+    return new Promise((resolve, reject) => {
+        const stores = ['subjects', 'chapters', 'questions'];
+        let completed = 0;
+        
+        stores.forEach(storeName => {
+            const transaction = db.transaction(storeName, 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = store.clear();
+            
+            request.onsuccess = () => {
+                completed++;
+                if (completed === stores.length) {
+                    resolve();
+                }
+            };
+            
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    });
+}
+
+// Import subjects
+function importSubjects(subjects) {
+    return new Promise((resolve, reject) => {
+        if (!subjects || subjects.length === 0) {
+            resolve();
+            return;
+        }
+        
+        const transaction = db.transaction('subjects', 'readwrite');
+        const store = transaction.objectStore('subjects');
+        let completed = 0;
+        
+        subjects.forEach(subject => {
+            const request = store.add(subject);
+            
+            request.onsuccess = () => {
+                completed++;
+                if (completed === subjects.length) {
+                    resolve();
+                }
+            };
+            
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    });
+}
+
+// Import chapters
+function importChapters(chapters) {
+    return new Promise((resolve, reject) => {
+        if (!chapters || chapters.length === 0) {
+            resolve();
+            return;
+        }
+        
+        const transaction = db.transaction('chapters', 'readwrite');
+        const store = transaction.objectStore('chapters');
+        let completed = 0;
+        
+        chapters.forEach(chapter => {
+            const request = store.add(chapter);
+            
+            request.onsuccess = () => {
+                completed++;
+                if (completed === chapters.length) {
+                    resolve();
+                }
+            };
+            
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    });
+}
+
+// Import questions
+function importQuestions(questions) {
+    return new Promise((resolve, reject) => {
+        if (!questions || questions.length === 0) {
+            resolve();
+            return;
+        }
+        
+        const transaction = db.transaction('questions', 'readwrite');
+        const store = transaction.objectStore('questions');
+        let completed = 0;
+        
+        questions.forEach(question => {
+            // Convert Base64 strings back to ArrayBuffer
+            const processedQuestion = {
+                id: question.id,
+                chapterId: question.chapterId,
+                timestamp: question.timestamp,
+                questionImage: base64ToArrayBuffer(question.questionImage),
+                solutionImage: question.solutionImage ? base64ToArrayBuffer(question.solutionImage) : null
+            };
+            
+            const request = store.add(processedQuestion);
+            
+            request.onsuccess = () => {
+                completed++;
+                if (completed === questions.length) {
+                    resolve();
+                }
+            };
+            
+            request.onerror = () => {
+                reject(request.error);
+            };
+        });
+    });
+}
     </script>
 </body>
 </html>
