@@ -938,19 +938,6 @@ function loadBookmarkedQuestions() {
     }
 }
 
-// Close bookmark section when clicking outside
-document.addEventListener('click', function(event) {
-    const bookmarkSection = document.getElementById('bookmarkSection');
-    const bookmarkBtn = document.querySelector('.bookmark-section-btn');
-    
-    if (bookmarkSection && 
-        bookmarkSection.style.display === 'block' && 
-        !bookmarkSection.contains(event.target) && 
-        !bookmarkBtn.contains(event.target)) {
-        bookmarkSection.style.display = 'none';
-        document.querySelector('.blur-overlay').style.display = 'none';
-    }
-});
 
 // Update bookmark count badge
 function updateBookmarkCount() {
