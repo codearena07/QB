@@ -6,30 +6,12 @@
     <title>Question Bank</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     <link rel="stylesheet" href="styles.css">
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="blur-overlay"></div>
 
-    <div id="g_id_onload" 
-     data-client_id="553678059579-onniiv2nkco6gjf1p5tnvn6c52an61fg.apps.googleusercontent.com"
-     data-login_uri="https://codearena07.github.io/QB/" 
-     data-auto_prompt="false">
-</div>
-<div class="g_id_signin" 
-     data-type="standard" 
-     data-size="large" 
-     data-theme="outline" 
-     data-text="sign_in_with" 
-     data-shape="rectangular" 
-     data-logo_alignment="left">
-</div>
-
-
-
 <!-- Update the button-group div to include the new IDs -->
 <div class="button-group">
-    <button onclick="forceSync()" class="btn">Sync Now</button>
     <button id="exportButton" class="btn" onclick="exportData()" title="Backup Data">
         <i class="fa fa-download"></i> Backup
     </button>
@@ -1355,91 +1337,6 @@ function exportData() {
                 });
             });
         }
-
-        // Google से टोकन वेरिफाई करें
-function handleCredentialResponse(response) {
-    fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + response.credential)
-        .then(res => res.json())
-        .then(data => {
-            console.log('User ID:', data.sub); // यूनिक यूजर आईडी
-            syncData(data.sub); // डेटा सिंक फंक्शन को कॉल करें
-        });
-}
-
-// डेटा सिंक लॉजिक
-async function syncData(userId) {
-    // Google Drive API का उपयोग करें
-    try {
-        // 1. Google Drive से डेटा लोड करें
-        const response = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='user_${userId}_data.json'`, {
-            headers: {
-                'Authorization': `Bearer ${gapi.auth.getToken().access_token}`
-            }
-        });
-        const files = await response.json();
-        
-        // 2. अगर फाइल मौजूद है, तो डेटा इम्पोर्ट करें
-        if (files.files.length > 0) {
-            const fileId = files.files[0].id;
-            const dataRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                headers: {
-                    'Authorization': `Bearer ${gapi.auth.getToken().access_token}`
-                }
-            });
-            const cloudData = await dataRes.json();
-            importData({ target: { result: JSON.stringify(cloudData) } }); // मौजूदा इम्पोर्ट फंक्शन का उपयोग करें
-        }
-        
-        // 3. लोकल डेटा को Google Drive में सेव करें
-        const exportData = await exportData(); // मौजूदा एक्सपोर्ट फंक्शन का उपयोग करें
-        const blob = new Blob([exportData], { type: 'application/json' });
-       // Google Drive में फ़ाइल अपलोड करते समय
-const metadata = {
-    name: `user_${userId}_data.json`,
-    mimeType: 'application/json',
-    parents: ['root'] // यह जोड़ें
-};
-        
-        // Google Drive API के साथ फाइल अपलोड करें
-        const formData = new FormData();
-        formData.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        formData.append('file', blob);
-        
-        await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${gapi.auth.getToken().access_token}`
-            },
-            body: formData
-        });
-        
-    } catch (error) {
-        console.error('Sync error:', error);
-    }
-}
-
-
-function forceSync() {
-    const userId = gapi.auth.getToken().sub;
-    if (userId) {
-        syncData(userId);
-        alert('Syncing data...');
-    }
-}
-
-// हर 5 मिनट में सिंक करें
-setInterval(() => {
-    if (gapi.auth.getToken()) {
-        syncData(gapi.auth.getToken().sub);
-    }
-}, 10000);
-
-// पेज बंद करते समय सिंक करें
-window.addEventListener('beforeunload', () => {
-    if (gapi.auth.getToken()) {
-        syncData(gapi.auth.getToken().sub);
-    }
-});
     </script>
 </body>
 </html>
