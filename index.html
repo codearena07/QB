@@ -413,21 +413,102 @@
 }
 
 /* Bookmark section container */
+/* Add overlay and blur effect when bookmark section is open */
+.blur-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  backdrop-filter: blur(10px); /* Strong blur effect */
+  -webkit-backdrop-filter: blur(10px); /* For Safari support */
+  background-color: rgba(0, 0, 0, 0.3); /* Slightly darken the background */
+  z-index: 998; /* Just below the bookmark section */
+  display: none; /* Hidden by default */
+}
+
+/* Make the bookmark section stand out more */
 .bookmark-section {
-    position: fixed;
-    top: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    max-width: 800px;
-    max-height: 80vh;
-    background: var(--card-bg);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    z-index: 999;
-    overflow-y: auto;
-    display: none;
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 800px;
+  max-height: 80vh;
+  background: var(--card-bg);
+  border-radius: 0.5rem;
+  padding: 1.5rem; /* Slightly larger padding */
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); /* Stronger shadow */
+  z-index: 999;
+  overflow-y: auto;
+  display: none;
+   /* Center all content inside */
+   text-align: center;
+
+}
+/* Center bookmarked questions content */
+#bookmarkedQuestionsContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+/* Center content in question cards */
+.bookmark-section .question-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+
+
+/* Make the question image container's direct children center-aligned */
+.bookmark-section .question-image-container > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0.5rem 0;
+  width: 100%;
+}
+
+/* Center the headings */
+.bookmark-section h3,
+.bookmark-section h4 {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+/* Ensure the bookmark section header is centered */
+.bookmark-section-header {
+  display: flex;
+  justify-content: center;
+  position: relative;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  width: 100%;
+}
+
+/* Position the close button at the right of the header */
+.bookmark-close-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Add animation for smooth transition */
+.bookmark-section, .blur-overlay {
+  transition: opacity 0.3s ease;
 }
 
 .bookmark-section-header {
@@ -456,7 +537,7 @@
     position: absolute;
     top: -5px;
     right: -5px;
-    background: red;
+    background: rgb(68, 71, 72);
     color: white;
     border-radius: 50%;
     width: 20px;
@@ -469,7 +550,7 @@
     </style>
 </head>
 <body>
-  
+    <div class="blur-overlay"></div>
 
 <!-- Update the button-group div to include the new IDs -->
 <div class="button-group">
@@ -1184,364 +1265,401 @@
             });
         }
 
-        // Toggle bookmark for a question
-        function toggleBookmark(questionId) {
-            const transaction = db.transaction(['questions', 'bookmarks'], 'readwrite');
-            const questionsStore = transaction.objectStore('questions');
-            const bookmarksStore = transaction.objectStore('bookmarks');
+
+
+// Toggle bookmark for a question
+function toggleBookmark(questionId) {
+    const transaction = db.transaction(['questions', 'bookmarks'], 'readwrite');
+    const questionsStore = transaction.objectStore('questions');
+    const bookmarksStore = transaction.objectStore('bookmarks');
+    
+    // Check if question exists
+    const questionRequest = questionsStore.get(questionId);
+    
+    questionRequest.onsuccess = () => {
+        const question = questionRequest.result;
+        if (!question) {
+            showNotification('Question not found!');
+            return;
+        }
+        
+        // Check if already bookmarked
+        const bookmarkRequest = bookmarksStore.get(questionId);
+        
+        bookmarkRequest.onsuccess = () => {
+            const bookmark = bookmarkRequest.result;
             
-            // Check if question exists
-            const questionRequest = questionsStore.get(questionId);
-            
-            questionRequest.onsuccess = () => {
-                const question = questionRequest.result;
-                if (!question) {
-                    showNotification('Question not found!');
-                    return;
-                }
+            if (bookmark) {
+                // Remove bookmark
+                const deleteRequest = bookmarksStore.delete(questionId);
                 
-                // Check if already bookmarked
-                const bookmarkRequest = bookmarksStore.get(questionId);
-                
-                bookmarkRequest.onsuccess = () => {
-                    const bookmark = bookmarkRequest.result;
+                deleteRequest.onsuccess = () => {
+                    console.log("Bookmark removed successfully");
+                    showNotification('Bookmark removed!');
+                    updateBookmarkUI(questionId, false);
+                    updateBookmarkCount();
                     
-                    if (bookmark) {
-                        // Remove bookmark
-                        const deleteRequest = bookmarksStore.delete(questionId);
-                        
-                        deleteRequest.onsuccess = () => {
-                            console.log("Bookmark removed successfully");
-                            showNotification('Bookmark removed!');
-                            updateBookmarkUI(questionId, false);
-                            updateBookmarkCount();
-                            
-                            // If bookmark section is open, refresh it
-                            if (document.getElementById('bookmarkSection').style.display === 'block') {
-                                loadBookmarkedQuestions();
-                            }
-                        };
-                        
-                        deleteRequest.onerror = (event) => {
-                            console.error("Error removing bookmark:", event.target.error);
-                        };
-                    } else {
-                        // Add bookmark
-                        const newBookmark = {
-                            questionId: questionId,
-                            chapterId: question.chapterId,
-                            timestamp: new Date().toISOString()
-                        };
-                        
-                        const addRequest = bookmarksStore.add(newBookmark);
-                        
-                        addRequest.onsuccess = () => {
-                            console.log("Bookmark added successfully");
-                            showNotification('Question bookmarked!');
-                            updateBookmarkUI(questionId, true);
-                            updateBookmarkCount();
-                            
-                            // If bookmark section is open, refresh it
-                            if (document.getElementById('bookmarkSection').style.display === 'block') {
-                                loadBookmarkedQuestions();
-                            }
-                        };
-                        
-                        addRequest.onerror = (event) => {
-                            console.error("Error adding bookmark:", event.target.error);
-                        };
+                    // If bookmark section is open, refresh it
+                    if (document.getElementById('bookmarkSection').style.display === 'block') {
+                        loadBookmarkedQuestions();
                     }
                 };
-            };
-        }
-
-        // Update bookmark button UI
-        function updateBookmarkUI(questionId, isBookmarked) {
-            // Update in main questions container
-            const questionCards = document.querySelectorAll('.question-card');
-            questionCards.forEach(card => {
-                if (parseInt(card.getAttribute('data-id')) === questionId) {
-                    const bookmarkBtn = card.querySelector('.bookmark-btn');
-                    const icon = bookmarkBtn.querySelector('i');
-                    
-                    if (isBookmarked) {
-                        bookmarkBtn.classList.remove('inactive');
-                        bookmarkBtn.classList.add('active');
-                        icon.classList.remove('fa-star-o');
-                        icon.classList.add('fa-star');
-                    } else {
-                        bookmarkBtn.classList.remove('active');
-                        bookmarkBtn.classList.add('inactive');
-                        icon.classList.remove('fa-star');
-                        icon.classList.add('fa-star-o');
-                    }
-                }
-            });
-        }
-
-        // Toggle bookmark section visibility
-        function toggleBookmarkSection() {
-            const bookmarkSection = document.getElementById('bookmarkSection');
-            
-            if (bookmarkSection.style.display === 'block') {
-                bookmarkSection.style.display = 'none';
+                
+                deleteRequest.onerror = (event) => {
+                    console.error("Error removing bookmark:", event.target.error);
+                };
             } else {
-                bookmarkSection.style.display = 'block';
-                loadBookmarkedQuestions();
+                // Add bookmark
+                const newBookmark = {
+                    questionId: questionId,
+                    chapterId: question.chapterId,
+                    timestamp: new Date().toISOString()
+                };
+                
+                const addRequest = bookmarksStore.add(newBookmark);
+                
+                addRequest.onsuccess = () => {
+                    console.log("Bookmark added successfully");
+                    showNotification('Question bookmarked!');
+                    updateBookmarkUI(questionId, true);
+                    updateBookmarkCount();
+                    
+                    // If bookmark section is open, refresh it
+                    if (document.getElementById('bookmarkSection').style.display === 'block') {
+                        loadBookmarkedQuestions();
+                    }
+                };
+                
+                addRequest.onerror = (event) => {
+                    console.error("Error adding bookmark:", event.target.error);
+                };
+            }
+        };
+    };
+}
+
+// Update bookmark button UI
+function updateBookmarkUI(questionId, isBookmarked) {
+    // Update in main questions container
+    const questionCards = document.querySelectorAll('.question-card');
+    questionCards.forEach(card => {
+        if (parseInt(card.getAttribute('data-id')) === questionId) {
+            const bookmarkBtn = card.querySelector('.bookmark-btn');
+            const icon = bookmarkBtn.querySelector('i');
+            
+            if (isBookmarked) {
+                bookmarkBtn.classList.remove('inactive');
+                bookmarkBtn.classList.add('active');
+                icon.classList.remove('fa-star-o');
+                icon.classList.add('fa-star');
+            } else {
+                bookmarkBtn.classList.remove('active');
+                bookmarkBtn.classList.add('inactive');
+                icon.classList.remove('fa-star');
+                icon.classList.add('fa-star-o');
             }
         }
+    });
+}
 
-        // Load all bookmarked questions
-        function loadBookmarkedQuestions() {
-            if (!db) {
-                console.error("Database not initialized");
+// Toggle bookmark section visibility with blur effect
+function toggleBookmarkSection() {
+    const bookmarkSection = document.getElementById('bookmarkSection');
+    const blurOverlay = document.querySelector('.blur-overlay');
+    
+    // Create blur overlay if it doesn't exist
+    if (!blurOverlay) {
+        const overlay = document.createElement('div');
+        overlay.className = 'blur-overlay';
+        document.body.appendChild(overlay);
+    }
+    
+    if (bookmarkSection.style.display === 'block') {
+        bookmarkSection.style.display = 'none';
+        document.querySelector('.blur-overlay').style.display = 'none';
+    } else {
+        bookmarkSection.style.display = 'block';
+        document.querySelector('.blur-overlay').style.display = 'block';
+        loadBookmarkedQuestions();
+    }
+}
+
+// Load all bookmarked questions
+function loadBookmarkedQuestions() {
+    if (!db) {
+        console.error("Database not initialized");
+        return;
+    }
+    
+    try {
+        const transaction = db.transaction(['bookmarks', 'questions'], 'readonly');
+        const bookmarksStore = transaction.objectStore('bookmarks');
+        const questionsStore = transaction.objectStore('questions');
+        const bookmarksRequest = bookmarksStore.getAll();
+        
+        bookmarksRequest.onsuccess = () => {
+            const bookmarks = bookmarksRequest.result;
+            console.log("Loaded bookmarks:", bookmarks);
+            const container = document.getElementById('bookmarkedQuestionsContainer');
+            container.innerHTML = '';
+            
+            if (bookmarks.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No Bookmarked Questions</h3>
+                        <p>Star your favorite questions to bookmark them</p>
+                    </div>
+                `;
                 return;
             }
             
-            try {
-                const transaction = db.transaction(['bookmarks', 'questions'], 'readonly');
-                const bookmarksStore = transaction.objectStore('bookmarks');
-                const questionsStore = transaction.objectStore('questions');
-                const bookmarksRequest = bookmarksStore.getAll();
+            // Sort bookmarks by timestamp (newest first)
+            bookmarks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            let loadedCount = 0;
+            bookmarks.forEach((bookmark, index) => {
+                const questionRequest = questionsStore.get(bookmark.questionId);
                 
-                bookmarksRequest.onsuccess = () => {
-                    const bookmarks = bookmarksRequest.result;
-                    console.log("Loaded bookmarks:", bookmarks);
-                    const container = document.getElementById('bookmarkedQuestionsContainer');
-                    container.innerHTML = '';
+                questionRequest.onsuccess = () => {
+                    const question = questionRequest.result;
                     
-                    if (bookmarks.length === 0) {
-                        container.innerHTML = `
-                            <div class="empty-state">
-                                <h3>No Bookmarked Questions</h3>
-                                <p>Star your favorite questions to bookmark them</p>
+                    if (question) {
+                        const questionURL = URL.createObjectURL(new Blob([question.questionImage]));
+                        const solutionURL = question.solutionImage ? URL.createObjectURL(new Blob([question.solutionImage])) : '';
+                        
+                        const card = document.createElement('div');
+                        card.className = 'question-card';
+                        card.setAttribute('data-id', question.id);
+                        
+                        // Create HTML for solution image only if it exists
+                        let solutionHTML = '';
+                        if (question.solutionImage) {
+                            solutionHTML = `
+                                <div>
+                                    <h4>Solution:</h4>
+                                    <img class="question-image" src="${solutionURL}" onclick="openImage('${solutionURL}')" style="cursor: pointer;">
+                                </div>
+                            `;
+                        }
+                        
+                        card.innerHTML = `
+                            <div class="question-image-container" style="display: flex; align-items: center;">
+                                <div style="margin-right: 1rem;">
+                                    <h4>Bookmarked Question ${index + 1}:</h4>
+                                    <img class="question-image" src="${questionURL}" onclick="openImage('${questionURL}')" style="cursor: pointer;">
+                                </div>
+                                ${solutionHTML}
+                            </div>
+                            <div style="display: flex; justify-content: center; margin-top: 1rem;">
+                                <button class="bookmark-btn active" onclick="toggleBookmark(${question.id})" aria-label="Remove Bookmark">
+                                    <i class="fa fa-star"></i>
+                                </button>
                             </div>
                         `;
-                        return;
+                        container.appendChild(card);
                     }
                     
-                    // Sort bookmarks by timestamp (newest first)
-                    bookmarks.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-                    
-                    let loadedCount = 0;
-                    bookmarks.forEach((bookmark, index) => {
-                        const questionRequest = questionsStore.get(bookmark.questionId);
-                        
-                        questionRequest.onsuccess = () => {
-                            const question = questionRequest.result;
-                            
-                            if (question) {
-                                const questionURL = URL.createObjectURL(new Blob([question.questionImage]));
-                                const solutionURL = question.solutionImage ? URL.createObjectURL(new Blob([question.solutionImage])) : '';
-                                
-                                const card = document.createElement('div');
-                                card.className = 'question-card';
-                                card.setAttribute('data-id', question.id);
-                                
-                                // Create HTML for solution image only if it exists
-                                let solutionHTML = '';
-                                if (question.solutionImage) {
-                                    solutionHTML = `
-                                        <div>
-                                            <h4>Solution:</h4>
-                                            <img class="question-image" src="${solutionURL}" onclick="openImage('${solutionURL}')" style="cursor: pointer;">
-                                        </div>
-                                    `;
-                                }
-                                
-                                card.innerHTML = `
-                                    <div class="question-image-container" style="display: flex; align-items: center;">
-                                        <div style="margin-right: 1rem;">
-                                            <h4>Bookmarked Question ${index + 1}:</h4>
-                                            <img class="question-image" src="${questionURL}" onclick="openImage('${questionURL}')" style="cursor: pointer;">
-                                        </div>
-                                        ${solutionHTML}
-                                    </div>
-                                    <div style="display: flex; justify-content: center; margin-top: 1rem;">
-                                        <button class="bookmark-btn active" onclick="toggleBookmark(${question.id})" aria-label="Remove Bookmark">
-                                            <i class="fa fa-star"></i>
-                                        </button>
-                                    </div>
-                                `;
-                                container.appendChild(card);
-                            }
-                            
-                            loadedCount++;
-                            if (loadedCount === bookmarks.length) {
-                                // All bookmarked questions loaded
-                                console.log("All bookmarked questions loaded");
-                            }
-                        };
-                        
-                        questionRequest.onerror = (event) => {
-                            console.error("Error loading bookmarked question:", event.target.error);
-                        };
-                    });
-                };
-                
-                bookmarksRequest.onerror = (event) => {
-                    console.error("Error loading bookmarks:", event.target.error);
-                };
-            } catch (error) {
-                console.error("Exception in loadBookmarkedQuestions:", error);
-            }
-        }
-
-        // Update bookmark count badge
-        function updateBookmarkCount() {
-            if (!db) {
-                console.error("Database not initialized");
-                return;
-            }
-            
-            try {
-                const transaction = db.transaction('bookmarks', 'readonly');
-                const store = transaction.objectStore('bookmarks');
-                const countRequest = store.count();
-                
-                countRequest.onsuccess = () => {
-                    const count = countRequest.result;
-                    const countElement = document.getElementById('bookmarkCount');
-                    
-                    if (count > 0) {
-                        countElement.textContent = count;
-                        countElement.style.display = 'flex';
-                    } else {
-                        countElement.style.display = 'none';
+                    loadedCount++;
+                    if (loadedCount === bookmarks.length) {
+                        // All bookmarked questions loaded
+                        console.log("All bookmarked questions loaded");
                     }
                 };
                 
-                countRequest.onerror = (event) => {
-                    console.error("Error counting bookmarks:", event.target.error);
+                questionRequest.onerror = (event) => {
+                    console.error("Error loading bookmarked question:", event.target.error);
                 };
-            } catch (error) {
-                console.error("Exception in updateBookmarkCount:", error);
-            }
-        }
-
-        // On page load, check for stored values
-        window.onload = function() {
-            const storedSubjectId = localStorage.getItem('selectedSubjectId');
-            const storedChapterId = localStorage.getItem('selectedChapterId');
-
-            if (storedSubjectId) {
-                selectedSubjectId = parseInt(storedSubjectId);
-                console.log("Restored selected subject ID:", selectedSubjectId);
-            }
-
-            if (storedChapterId) {
-                selectedChapterId = parseInt(storedChapterId);
-                console.log("Restored selected chapter ID:", selectedChapterId);
-            }
-            
-            // Update bookmark count on page load
-            updateBookmarkCount();
-        };
-
-        // Helper function to get all data from a store
-        function getAllData(storeName) {
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction(storeName, 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.getAll();
-                
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
             });
-        }
+        };
+        
+        bookmarksRequest.onerror = (event) => {
+            console.error("Error loading bookmarks:", event.target.error);
+        };
+    } catch (error) {
+        console.error("Exception in loadBookmarkedQuestions:", error);
+    }
+}
 
-        // Convert ArrayBuffer to Base64 string
-        function arrayBufferToBase64(buffer) {
-            if (!buffer) return null;
+// Close bookmark section when clicking outside
+document.addEventListener('click', function(event) {
+    const bookmarkSection = document.getElementById('bookmarkSection');
+    const bookmarkBtn = document.querySelector('.bookmark-section-btn');
+    
+    if (bookmarkSection && 
+        bookmarkSection.style.display === 'block' && 
+        !bookmarkSection.contains(event.target) && 
+        !bookmarkBtn.contains(event.target)) {
+        bookmarkSection.style.display = 'none';
+        document.querySelector('.blur-overlay').style.display = 'none';
+    }
+});
+
+// Update bookmark count badge
+function updateBookmarkCount() {
+    if (!db) {
+        console.error("Database not initialized");
+        return;
+    }
+    
+    try {
+        const transaction = db.transaction('bookmarks', 'readonly');
+        const store = transaction.objectStore('bookmarks');
+        const countRequest = store.count();
+        
+        countRequest.onsuccess = () => {
+            const count = countRequest.result;
+            const countElement = document.getElementById('bookmarkCount');
             
-            const binary = [];
-            const bytes = new Uint8Array(buffer);
-            const len = bytes.byteLength;
-            
-            for (let i = 0; i < len; i++) {
-                binary.push(String.fromCharCode(bytes[i]));
+            if (count > 0) {
+                countElement.textContent = count;
+                countElement.style.display = 'flex';
+            } else {
+                countElement.style.display = 'none';
             }
-            
-            return btoa(binary.join(''));
-        }
+        };
+        
+        countRequest.onerror = (event) => {
+            console.error("Error counting bookmarks:", event.target.error);
+        };
+    } catch (error) {
+        console.error("Exception in updateBookmarkCount:", error);
+    }
+}
 
-        // Convert Base64 string back to ArrayBuffer
-        function base64ToArrayBuffer(base64) {
-            if (!base64) return null;
-            
-            const binaryString = atob(base64);
-            const len = binaryString.length;
-            const bytes = new Uint8Array(len);
-            
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
-            
-            return bytes.buffer;
-        }
+// On page load, check for stored values
+window.onload = function() {
+    const storedSubjectId = localStorage.getItem('selectedSubjectId');
+    const storedChapterId = localStorage.getItem('selectedChapterId');
 
-        // Export all data as a JSON file
-        function exportData() {
-            // Show loading notification
-            showNotification('Preparing backup...');
+    if (storedSubjectId) {
+        selectedSubjectId = parseInt(storedSubjectId);
+        console.log("Restored selected subject ID:", selectedSubjectId);
+    }
+
+    if (storedChapterId) {
+        selectedChapterId = parseInt(storedChapterId);
+        console.log("Restored selected chapter ID:", selectedChapterId);
+    }
+    
+    // Create blur overlay element if it doesn't exist
+    if (!document.querySelector('.blur-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'blur-overlay';
+        document.body.appendChild(overlay);
+    }
+    
+    // Update bookmark count on page load
+    updateBookmarkCount();
+};
+
+// Helper function to get all data from a store
+function getAllData(storeName) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(storeName, 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.getAll();
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+    });
+}
+
+// Convert ArrayBuffer to Base64 string
+function arrayBufferToBase64(buffer) {
+    if (!buffer) return null;
+    
+    const binary = [];
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    
+    for (let i = 0; i < len; i++) {
+        binary.push(String.fromCharCode(bytes[i]));
+    }
+    
+    return btoa(binary.join(''));
+}
+
+// Convert Base64 string back to ArrayBuffer
+function base64ToArrayBuffer(base64) {
+    if (!base64) return null;
+    
+    const binaryString = atob(base64);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    return bytes.buffer;
+}
+
+// Export all data as a JSON file
+function exportData() {
+    // Show loading notification
+    showNotification('Preparing backup...');
+    
+    const backupData = {
+        subjects: [],
+        chapters: [],
+        questions: [],
+        bookmarks: []
+    };
+    
+    // First get all subjects
+    const subjectsPromise = getAllData('subjects');
+    
+    subjectsPromise
+        .then(subjects => {
+            backupData.subjects = subjects;
+            return getAllData('chapters');
+        })
+        .then(chapters => {
+            backupData.chapters = chapters;
+            return getAllData('questions');
+        })
+        .then(questions => {
+            // Convert ArrayBuffer to Base64 for each question image
+            const processedQuestions = questions.map(question => {
+                return {
+                    id: question.id,
+                    chapterId: question.chapterId,
+                    timestamp: question.timestamp,
+                    questionImage: arrayBufferToBase64(question.questionImage),
+                    solutionImage: question.solutionImage ? arrayBufferToBase64(question.solutionImage) : null
+                };
+            });
             
-            const backupData = {
-                subjects: [],
-                chapters: [],
-                questions: [],
-                bookmarks: []
-            };
+            backupData.questions = processedQuestions;
+            return getAllData('bookmarks');
+        })
+        .then(bookmarks => {
+            backupData.bookmarks = bookmarks;
             
-            // First get all subjects
-            const subjectsPromise = getAllData('subjects');
+            // Create and download the backup file
+            const dataStr = JSON.stringify(backupData);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(dataBlob);
             
-            subjectsPromise
-                .then(subjects => {
-                    backupData.subjects = subjects;
-                    return getAllData('chapters');
-                })
-                .then(chapters => {
-                    backupData.chapters = chapters;
-                    return getAllData('questions');
-                })
-                .then(questions => {
-                    // Convert ArrayBuffer to Base64 for each question image
-                    const processedQuestions = questions.map(question => {
-                        return {
-                            id: question.id,
-                            chapterId: question.chapterId,
-                            timestamp: question.timestamp,
-                            questionImage: arrayBufferToBase64(question.questionImage),
-                            solutionImage: question.solutionImage ? arrayBufferToBase64(question.solutionImage) : null
-                        };
-                    });
-                    
-                    backupData.questions = processedQuestions;
-                    return getAllData('bookmarks');
-                })
-                .then(bookmarks => {
-                    backupData.bookmarks = bookmarks;
-                    
-                    // Create and download the backup file
-                    const dataStr = JSON.stringify(backupData);
-                    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                    const url = URL.createObjectURL(dataBlob);
-                    
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `JEE_QuestionBank_Backup_${new Date().toISOString().slice(0,10)}.json`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                    showNotification('Backup successfully created!');
-                })
-                .catch(error => {
-                    console.error('Error creating backup:', error);
-                    showNotification('Error creating backup. Please try again.');
-                });
-        }
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `JEE_QuestionBank_Backup_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showNotification('Backup successfully created!');
+        })
+        .catch(error => {
+            console.error('Error creating backup:', error);
+            showNotification('Error creating backup. Please try again.');
+        });
+}
+
+
+
+
 
         // Import data from a JSON file
         function importData(event) {
