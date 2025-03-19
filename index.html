@@ -25,8 +25,11 @@
      data-logo_alignment="left">
 </div>
 
+
+
 <!-- Update the button-group div to include the new IDs -->
 <div class="button-group">
+    <button onclick="forceSync()" class="btn">Sync Now</button>
     <button id="exportButton" class="btn" onclick="exportData()" title="Backup Data">
         <i class="fa fa-download"></i> Backup
     </button>
@@ -1390,10 +1393,12 @@ async function syncData(userId) {
         // 3. लोकल डेटा को Google Drive में सेव करें
         const exportData = await exportData(); // मौजूदा एक्सपोर्ट फंक्शन का उपयोग करें
         const blob = new Blob([exportData], { type: 'application/json' });
-        const metadata = {
-            name: `user_${userId}_data.json`,
-            mimeType: 'application/json',
-        };
+       // Google Drive में फ़ाइल अपलोड करते समय
+const metadata = {
+    name: `user_${userId}_data.json`,
+    mimeType: 'application/json',
+    parents: ['root'] // यह जोड़ें
+};
         
         // Google Drive API के साथ फाइल अपलोड करें
         const formData = new FormData();
@@ -1414,12 +1419,20 @@ async function syncData(userId) {
 }
 
 
+function forceSync() {
+    const userId = gapi.auth.getToken().sub;
+    if (userId) {
+        syncData(userId);
+        alert('Syncing data...');
+    }
+}
+
 // हर 5 मिनट में सिंक करें
 setInterval(() => {
     if (gapi.auth.getToken()) {
         syncData(gapi.auth.getToken().sub);
     }
-}, 300000);
+}, 10000);
 
 // पेज बंद करते समय सिंक करें
 window.addEventListener('beforeunload', () => {
